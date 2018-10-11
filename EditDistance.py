@@ -18,6 +18,8 @@ import sys
 class EditDistanceFinder():
     DEL, SUB, INS = range(3)
     BLANK = '%'
+    UNK = '~'
+    ALPHA = string.ascii_lowercase + BLANK + UNK
     def __init__(self):
         self.probs = defaultdict(lambda: defaultdict(float))
 
@@ -61,10 +63,8 @@ class EditDistanceFinder():
         counts = defaultdict(Counter) 
         self.probs = defaultdict(lambda: defaultdict(float))
 
-        alphabet = [a for a in string.ascii_lowercase] + ['unk', '%'] 
-
-        for a in alphabet:
-            for b in alphabet:
+        for a in self.ALPHA:
+            for b in self.ALPHA:
                 counts[a][b] += .1
         
         for observed_char, intended_char in alignments:
@@ -75,7 +75,12 @@ class EditDistanceFinder():
             for observed_char, observed_count in counter.items():
                 self.probs[intended_char][observed_char] = observed_count / total
 
+    def _clean(self, w): 
+        return "".join([c if c in self.ALPHA else self.UNK for c in w])
+
     def align(self, observed_word, intended_word):
+        observed_cleaned = self._clean(observed_word)
+        intended_cleaned = self._clean(intended_word)
 
         table = self._do_align(observed_word, intended_word)
         alignment = self._do_trace(observed_word, intended_word, table)
@@ -122,14 +127,16 @@ class EditDistanceFinder():
         return list(reversed(alignments))
     
     def del_cost(self, char):
-        return 1-self.probs[char][self.BLANK]
+        return 1-self.probs[self._clean(char)][self.BLANK]
     
     def ins_cost(self, char):
-        return 1-self.probs[self.BLANK][char]
+        return 1-self.probs[self.BLANK][self._clean(char)]
     
     def sub_cost(self, observed_char, intended_char):
+        observed_clean = self._clean(observed_char)
+        intended_clean = self._clean(intended_char)
         if observed_char == intended_char: return 0
-        else: return 1-self.probs[intended_char][observed_char]
+        else: return 1-self.probs[intended_clean][observed_clean]
         
     def show_alignment(self, alignments):
         observed, intended = list(zip(*alignments))
@@ -145,8 +152,8 @@ class EditDistanceFinder():
         score, alignment = self.align(observed_word, intended_word)
         total_prob = 0
         for observed_char, intended_char in alignment:
-            intd = intended_char if intended_char in self.probs else "unk"
-            obsv = observed_char if observed_char in self.probs[intd] else "unk"
+            intd = intended_char if intended_char in self.probs else self.UNK
+            obsv = observed_char if observed_char in self.probs[intd] else self.UNK
             try: 
                 total_prob += log(self.probs[intd][obsv])
             except:
@@ -158,7 +165,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--store", "-s", type=argparse.FileType('wb'), required=True)
-    parser.add_argument("--source", type=argparse.FileType('r', encoding='UTF-8'))
+    parser.add_argument("--source", type=argparse.FileType('r', encoding='UTF-8'), required=True)
     args = parser.parse_args()
 
     aligner = EditDistanceFinder()    

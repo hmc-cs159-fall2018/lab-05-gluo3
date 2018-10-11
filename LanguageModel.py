@@ -52,7 +52,7 @@ class LanguageModel():
         self.vocabulary = set([x[0] for x in vocab.most_common(self.max_vocab)] + ["<s>", "</s>", "UNK"])
         self.V = len(self.vocabulary)
 
-    def get_chunks(self, source_files, chunk_size=100000):
+    def get_chunks(self, source_files, chunk_size=10000):
         print("Get Chunks...")
         for fp in source_files:
             print("Reading from %s" % (fp.name))
